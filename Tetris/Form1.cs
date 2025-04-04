@@ -526,17 +526,45 @@ namespace Tetris
 
         // KEYS -- END
 
+        // *** // 
+
+
+        // HELPER METHOD FOR THE HOLD FUNCTION 
+        private void ResetTetrominoPosition(TetrominoBuilder tetromino)
+        {
+            if (tetromino == null) return;
+
+            int minX = tetromino.Blocks.Min(b => b.X);
+            int minY = tetromino.Blocks.Min(b => b.Y);
+
+            // Offset to position near top center
+            int xOffset = (gridWidth / 2) - minX;
+            int yOffset = 0 - minY;  // Bring it to top
+
+            for (int i = 0; i < tetromino.Blocks.Length; i++)
+            {
+                tetromino.Blocks[i] = new Point(
+                    tetromino.Blocks[i].X + xOffset,
+                    tetromino.Blocks[i].Y + yOffset
+                );
+            }
+        }
+
+
         // HOLD TETROMINO
 
         private void HoldTetromino()
         {
+            // IF ALREADY HELD THIS TURN, RETURN 
             if (hasHeldThisTurn) return;
 
+            // IF HELD TETROMINO IS NULL, THEN SET THE ACTIVE TETROMINO AS THE HELD ONE, AND SPAWN A NEW ONE
             if (heldTetromino == null)
             {
                 heldTetromino = activeTetromino;
                 activeTetromino = SpawnTetromino();
             }
+            // IF ALREADY HOLDING A TETROMINO, SWAP THE ACTIVE ONE FOR THE HELD ONE 
             else
             {
                 TetrominoBuilder temp = heldTetromino;
@@ -570,59 +598,23 @@ namespace Tetris
             {
                 currentLevel = newLevel;
 
-                // Adjust the interval based on level
                 gameTimer.Interval = Math.Max(50, 150 - (currentLevel - 1) * 10);
                 level = currentLevel;
             }
         }
 
-        // WALL KICK
-
-        public bool TryWallKick(TetrominoBuilder shape)
-        {
-            List<Point> rotated = shape.RotationCheck(shape);
-
-            // Try normal rotation
-            if (IsValidPosition(rotated))
-            {
-                shape.RotateLeft(shape);
-                return true;
-            }
-
-            // Try multiple horizontal shifts (left and right)
-            int[] shifts = { -1, 1, -2, 2, -3, 3 }; // More aggressive kicks
-
-            foreach (int dx in shifts)
-            {
-                var shifted = Shift(rotated, dx);
-                if (IsValidPosition(shifted))
-                {
-                    // Apply the shift
-                    for (int i = 0; i < Math.Abs(dx); i++)
-                    {
-                        if (dx < 0) shape.MoveLeft(shape);
-                        else shape.MoveRight(shape);
-                    }
-
-                    // Apply the rotation
-                    shape.RotateLeft(shape);
-                    return true;
-                }
-            }
-
-            // All wall kicks failed
-            return false;
-        }
-
-
-
+        // HELPER FUNCTION FOR WALL KICK
         private List<Point> Shift(List<Point> blocks, int dx)
         {
+            // LOOP THROUGH EACH POINT IN BLOCKS , USES LINQ TO "SHIFT" EACH BLOCK HORIZONTALLY TO CHECK IF IT COLLIDES 
+            // OR GOES OUT OF BOUNDS
             return blocks.Select(p => new Point(p.X + dx, p.Y)).ToList();
         }
 
+        // HELPER FUNCTION FOR WALL KICK
         private bool IsValidPosition(List<Point> blocks)
         {
+            // CHECKS IF BLOCKS ARE IN A VALID POSITION 
             foreach (var block in blocks)
             {
                 if (block.X < 0 || block.X >= gridWidth || block.Y < 0 || block.Y >= gridHeight)
@@ -634,6 +626,52 @@ namespace Tetris
             return true;
         }
 
+        // WALL KICK
+
+        public bool TryWallKick(TetrominoBuilder shape)
+        {
+            List<Point> rotated = shape.RotationCheck(shape);
+
+            // TRY NORMAL ROTATION
+            if (IsValidPosition(rotated))
+            {
+                shape.RotateLeft(shape);
+                return true;
+            }
+
+            // TRY MULTIPLE DIFFERENT "KICKS" SO THAT THE "I" TETROMINO ALSO IS ABLE TO ROTATE
+            int[] shifts = { -1, 1, -2, 2, -3, 3 };
+
+            // LOOP OVER ALL SHIFTS
+            foreach (int dx in shifts)
+            {
+
+                var shifted = Shift(rotated, dx);
+                if (IsValidPosition(shifted))
+                {
+                    // IF IS VALID POSITION , APPLY SHIFT
+                    for (int i = 0; i < Math.Abs(dx); i++)
+                    {
+                        if (dx < 0) shape.MoveLeft(shape);
+                        else shape.MoveRight(shape);
+                    }
+
+                    // APPLY THE ROTATION NEXT
+                    shape.RotateLeft(shape);
+                    return true;
+                }
+            }
+
+            // IF FALSE, THEN CANNOT ROTATE
+            return false;
+        }
+
+
+
+       
+
+        
+
 
         // APPLY GRAVITY 
 
@@ -644,13 +682,13 @@ namespace Tetris
             if (fullRows.Count == 0)
                 return;
 
-            // Create a new temp grid
+            // CREATE A TEMPORARY GRID
             int[,] newGrid = new int[gridWidth, gridHeight];
             Color[,] newGridColors = new Color[gridWidth, gridHeight];
 
             int targetRow = gridHeight - 1;
 
-            // Go from bottom up, copying only non-full rows
+            // GO FROM BOTTOM UP , CHECKING WHICH ROWS TO KEEP 
             for (int row = gridHeight - 1; row >= 0; row--)
             {
                 if (!fullRows.Contains(row))
@@ -664,15 +702,15 @@ namespace Tetris
                 }
             }
 
-            // Replace original grid
+            // NOW REPLACE THE ORIGINAL GRID
             grid = newGrid;
             gridColors = newGridColors;
 
-            // Score once per row cleared
+            // INCREASE SCORE * CLEARED ROWS
             foreach (int _ in fullRows)
                 UpdateScore();
 
-            Invalidate(); // Redraw
+            Invalidate(); 
         }
 
         // HARD DROP
@@ -684,13 +722,14 @@ namespace Tetris
 
             while (true)
             {
-                // Try to move the tetromino down
+                // TRY TO MOVE
                 foreach (Point block in activeTetromino.Blocks)
                 {
                     int newY = block.Y + 1;
-                    // If the block would go out of bounds or land on another block
+                    // BEFORE COLLISION
                     if (newY >= gridHeight || grid[block.X, newY] != 0)
                     {
+                        // LOCK TETROMINO, SPAWN A NEW ONE, APPLY GRAVITY
                         LockTetromino(activeTetromino);
                         activeTetromino = SpawnTetromino();
                         ApplyGravity();
@@ -699,30 +738,19 @@ namespace Tetris
                     }
                 }
 
-                // If it's safe, move the tetromino down
+                // IF SAFE TO MOVE DOWN, MOVE DOWN
                 activeTetromino.MoveDown(activeTetromino);
             }
         }
         
-
-
-
-        // HOLD TETROMINO
-
-
-
-        // PAUSE GAME 
-
-
-
         // CHECK GAME OVER
 
         private bool CheckGameOver()
         {
-            // If the top row contains a locked piece, return true
+            // IF TOP ROW CONTAINS LOCKED PIECE, GAME OVER
             for (int col = 0; col < gridWidth; col++)
             {
-                if (grid[col, 0] == 1) // Top row occupied
+                if (grid[col, 0] == 1)
                 {
                     return true;
                 }
@@ -737,20 +765,17 @@ namespace Tetris
         {
             if (CheckGameOver())
             {
-                gameTimer.Stop(); // Stop the game loop
+                gameTimer.Stop(); // IF GAME OVER, STOP GAME LOOP
                 MessageBox.Show("Game Over!", "Tetris", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                RestartGame(); // Optionally restart the game
+                RestartGame(); // RESTART GAME
             }
         }
 
 
         // UPDATE GAME
-
         private void UpdateGame()
         {
-
-          
-
+                
                 ApplyGravity();
                 IncreaseSpeed();
 
@@ -769,45 +794,12 @@ namespace Tetris
 
         }
 
-        // SET NEW ACTIVE TETROMINO
-
-        private TetrominoBuilder SetNewActive(bool locked)
-        {
-            if (locked)
-            {
-                
-                return activeTetromino = SpawnTetromino();
-
-            }
-            else return activeTetromino;
-        }
-
-        // CHECK FOR COLLISION
-
-        private bool CheckCollision(TetrominoBuilder shape, int[,] grid)
-        {
-            foreach ( Point block in shape.Blocks)
-            {
-                int x = block.X;
-                int y = block.Y;
-                if ( y >= grid.GetLength(1))
-                {
-                    return true;
-                }
-                if (grid[x, y] != 0)
-                {
-                    return true; 
-                }
-               
-            }
-            return false;
-        }
 
         // RESTART GAME
 
         private void RestartGame()
         {
-            // Clear the grid
+            // CLEAR GRID
             for (int row = 0; row < gridHeight; row++)
             {
                 for (int col = 0; col < gridWidth; col++)
@@ -817,31 +809,12 @@ namespace Tetris
                 }
             }
 
-            // Reset score and active piece
+            // RESET SCORE AND ACTIVE PIECE
             score = 0;
             activeTetromino = SpawnTetromino();
 
-            // Restart the game loop
+            // RESTART GAME LOOP
             gameTimer.Start();
-        }
-        private void ResetTetrominoPosition(TetrominoBuilder tetromino)
-        {
-            if (tetromino == null) return;
-
-            int minX = tetromino.Blocks.Min(b => b.X);
-            int minY = tetromino.Blocks.Min(b => b.Y);
-
-            // Offset to position near top center
-            int xOffset = (gridWidth / 2) - minX;
-            int yOffset = 0 - minY;  // Bring it to top
-
-            for (int i = 0; i < tetromino.Blocks.Length; i++)
-            {
-                tetromino.Blocks[i] = new Point(
-                    tetromino.Blocks[i].X + xOffset,
-                    tetromino.Blocks[i].Y + yOffset
-                );
-            }
         }
 
 
