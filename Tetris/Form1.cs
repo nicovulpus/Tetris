@@ -107,7 +107,7 @@ namespace Tetris
             this.KeyDown += new KeyEventHandler(KeyDownX);
             this.KeyUp += new KeyEventHandler(KeyUpX);
             this.KeyDown += new KeyEventHandler(KeyDownC);
-            this.KeyDown += new KeyEventHandler(KeyUpC);
+            this.KeyUp += new KeyEventHandler(KeyUpC);
 
 
 
