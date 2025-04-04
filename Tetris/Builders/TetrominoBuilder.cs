@@ -65,6 +65,13 @@ namespace Tetris
                 Blocks[i] = new Point(newX, newY);
             }
         }
+
+        public virtual void RotateLeftUnsafe(TetrominoBuilder shape)
+        {
+            
+
+
+        }
         public virtual List<Point> RotationCheck(TetrominoBuilder shape)
         {
             List<Point> rotatedPoints = new List<Point>(); 

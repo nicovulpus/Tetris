@@ -14,42 +14,53 @@ namespace Tetris
 {
     public partial class Form1 : Form
     {
-        //List over all tetrominoes
+        // LIST OF ALL LOCKED TETROMINOS
         private List<TetrominoBuilder> lockedTetrominoes = new List<TetrominoBuilder>();
 
-        // Initialize grid
+        // DEFINE GRIDSIZE
         private const int gridWidth = 10;
         private const int gridHeight = 20;
         private const int cellSize = 30;
         private int[,] grid;
         private Color[,] gridColors;
+        // CREATE ACTIVE TETROMINO
         private TetrominoBuilder activeTetromino;
+        // CREATE KEYPRESSES
         private bool isLeftKeyPressed = false;
         private bool isRightKeyPressed = false;
         private bool isUpKeyPressed = false;
         private bool isDownKeyPressed = false;
         private bool isZKeyPressed = false;
         private bool isXKeyPressed = false;
+        private bool isCKeyPressed = false;
+        // CREATE HELD-BOOL
+        private bool hasHeldThisTurn = false;
+
+        // CREATE SCORE AND LEVEL
         private int score = 0;
+        private int level = 1;
+        private int currentLevel = 1;
+        
+        // CREATE NEXT AND HELD TETROMINOS
         private TetrominoBuilder nextTetromino;
+        private TetrominoBuilder heldTetromino;
 
-
-        // Set timer 
+        // SET TIMER
         private System.Windows.Forms.Timer gameTimer;
 
 
-        // Define GameLoop
+        // DEFINE GAMELOOP
         private void GameLoop(object sender , EventArgs e)
         {
                 UpdateGame();
                 Invalidate();
         }
 
-        // Define Form1 
+        // DEFINE FORM1
         public Form1()
         {
 
-            // Set up the Client
+            // SET UP THE CLIENT
             InitializeComponent();
             this.BackColor = Color.FromArgb(30, 30, 30);
             this.DoubleBuffered = true;
@@ -58,33 +69,33 @@ namespace Tetris
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             
-            // Set up a timer
+            // SET UP A TIMER
             gameTimer = new System.Windows.Forms.Timer();
             gameTimer.Interval = 150;
             gameTimer.Tick += new EventHandler(GameLoop);
             gameTimer.Start();
             
-            //Spawn Tetromino
+            // SPAWN TETROMINO
             activeTetromino = SpawnTetromino();
            
-            // Initialize grid
+            // INITIALIZE GRID
             grid= new int[gridWidth, gridHeight];
             
             gridColors = new Color[gridWidth, gridHeight];
             
-            // Populate the grid with zeroes
+            // POPULATE GRID WITH ZEROES
             for (int row = 0; row < gridHeight; row++)
             {
                 for (int col = 0; col < gridWidth; col++)
                 {
-                    grid[col, row] = 0; // Initialize all cells to 0
+                    grid[col, row] = 0; 
                 }
             }
 
-            // Make the active tetromino fall down 
+            // MAKE ACTIVE TETROMINO FALL DOWN
             FallDownTetromino(activeTetromino);
 
-            // Set up Eventlisteners for player input
+            // SET UP EVENT LISTENER FOR KEYPRESSES
             this.KeyDown += new KeyEventHandler(KeyDownLeft);
             this.KeyUp += new KeyEventHandler(KeyUpLeft);
             this.KeyDown += new KeyEventHandler(KeyDownRight);
@@ -95,20 +106,23 @@ namespace Tetris
             this.KeyUp += new KeyEventHandler(KeyUpDown);
             this.KeyDown += new KeyEventHandler(KeyDownX);
             this.KeyUp += new KeyEventHandler(KeyUpX);
+            this.KeyDown += new KeyEventHandler(KeyDownC);
+            this.KeyDown += new KeyEventHandler(KeyUpC);
 
 
 
 
         }
 
-        // OnPaint method to paint in the grid and the blocks
+        // ONPAINT
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
 
-            //Draw Grid
+            // DRAW THE OUTLINE OF THE GRID
             DrawGrid(e.Graphics);
 
+            // DRAW THE LOCKED TETROMINOS
             for (int row = 0; row < gridHeight; row++)
             {
                 for (int col = 0; col < gridWidth; col++)
@@ -122,31 +136,45 @@ namespace Tetris
                 }
             }
 
+            // DRAW THE ACTIVE TETROMINO
             if (activeTetromino != null)
             {
                 DrawTetromino(e.Graphics, activeTetromino);
             }
+
+            // DRAW THE STRINGS ON THE SIDE OF THE GRID
             using (Font font = new Font("Arial", 8))
             using (SolidBrush brush = new SolidBrush(Color.FloralWhite))
             {
                 e.Graphics.DrawString($"Score: {score}", font, brush, new PointF(320, 20));
-                e.Graphics.DrawString("Next tetromino", font, brush, new PointF(310, 70));
+                e.Graphics.DrawString("Next Tetromino", font, brush, new PointF(310, 70));
+                e.Graphics.DrawString("Held Tetromino", font, brush , new PointF(310, 200));
+                e.Graphics.DrawString($"Level: {currentLevel}", font, brush, new PointF(320, 400));
+
 
             }
+            // DRAW THE NEXT AND HELD TETROMINOS ON THE SIDE
             DrawNextTetromino(e.Graphics, nextTetromino);
+            DrawHeldTetromino(e.Graphics, heldTetromino);
 
         }
 
 
 
-        //Spawn Tetromino 
+        // METHOD TO SPAWN THE NEXT TETROMINO
         public TetrominoBuilder SpawnTetromino()
-        {
+        {   
+            // IF nextTetromino NOT NULL, ASSIGN IT TO activeTetromino
             activeTetromino = nextTetromino ?? PickTetromino();
-            nextTetromino = PickTetromino(); 
+            // RESET TETROMINOS SO THAT THE HOLDTETROMINO METHOD FUNCTIONS PROPERLY
+            ResetTetrominoPosition(activeTetromino);
+            // PICK NEXT TETROMINO
+            nextTetromino = PickTetromino();
+
             return activeTetromino;
         }
 
+        // METHOD TO DRAW THE NEXT TETROMINO ON THE SIDE OF THE GRID
         private void DrawNextTetromino(Graphics g, TetrominoBuilder next)
         {
             using (SolidBrush brush = new SolidBrush(next.Color))
@@ -161,8 +189,26 @@ namespace Tetris
             }
         }
 
+        // METHOD TO DRAW THE HELD TETROMINO ON THE SIDE OF THE GRID
+        private void DrawHeldTetromino(Graphics g, TetrominoBuilder next)
+        {
+            if (next == null) return;
 
-        // Draw Grid Method
+            using (SolidBrush brush = new SolidBrush(next.Color))
+            {
+                foreach (Point block in next.Blocks)
+                {
+                    int x = 290 + block.X * cellSize / 2;
+                    int y = 180 + block.Y * cellSize / 2;
+                    g.FillRectangle(brush, x, y, cellSize / 2, cellSize / 2);
+                    g.DrawRectangle(Pens.White, x, y, cellSize / 2, cellSize / 2);
+                }
+            }
+        }
+
+
+
+        // METHOD TO DRAW THE GRID
         private void DrawGrid(Graphics g)
         {
             Pen gridPen = new Pen(Color.Gray, 1);
@@ -180,7 +226,7 @@ namespace Tetris
             }
         }
 
-        // Draw Tetromino Method
+        // METHOD TO DRAW THE ACTIVE TETROMINO
         public void DrawTetromino(Graphics g, TetrominoBuilder shape)
         {
             //  Here I want to draw the selected shape on top of the grid
@@ -198,6 +244,7 @@ namespace Tetris
             }
         }
 
+        // RANDOMLY PICK THE NEXT TETROMINO
         public TetrominoBuilder PickTetromino()
         {
             // Here I want to randomly pick a shape
@@ -226,6 +273,8 @@ namespace Tetris
 
             }
         }
+
+        // LOCK TETROMINO
         private void LockTetromino(TetrominoBuilder shape)
         {
             
@@ -236,17 +285,23 @@ namespace Tetris
                     
                 }
               shape.LockTetromino();
+            hasHeldThisTurn = false;
+
         }
 
 
-
+        // MAKE TETROMINO FALL DOWN
         private void FallDownTetromino(TetrominoBuilder active)
-        {
+        {   
+            // IF THE ACTIVE TETROMINO IS LOCKED, RETURN
             if(active.IsLocked)
             {
                 return;
             }
+            // BOOL TO CHECK IF TETROMINO WILL BE " OUT OF BOUNDS " 
             bool willBeOutofBounds = false;
+
+
             foreach( Point block in active.Blocks )
             {
                 if (block.Y + 1 >= gridHeight || grid[block.X, block.Y + 1] != 0)
@@ -255,6 +310,7 @@ namespace Tetris
                     LockTetromino(active);
                 }
             }
+            // IF WILL NOT BE " OUT OF BOUNDS " THEN MOVE THE ACTIVE PIECE DOWN 
             if (!willBeOutofBounds)
             {
                 active.MoveDown(active);
@@ -262,6 +318,7 @@ namespace Tetris
             
         }
 
+        // MOVE LEFT
         private void MoveLeft(TetrominoBuilder shape)
         {
             if ( shape.IsLocked )
@@ -287,27 +344,7 @@ namespace Tetris
             }
         }
 
-        private bool SafeRotation(TetrominoBuilder shape)
-        {
-            List<Point> points = shape.RotationCheck(shape);
-
-            foreach (Point point in points)
-            {
-                // Check if the new position is out of bounds
-                if (point.X < 0 || point.X >= gridWidth || point.Y < 0 || point.Y >= gridHeight)
-                {
-                    return false; // Rotation is not safe
-                }
-
-                // Check if the new position is occupied by another piece
-                if (grid[point.X, point.Y] == 1)
-                {
-                    return false; // Rotation is not safe
-                }
-            }
-
-            return true; // Rotation is safe
-        }
+       // MOVE RIGHT
         private void MoveRight(TetrominoBuilder shape)
         {
             if (shape.IsLocked)
@@ -334,7 +371,7 @@ namespace Tetris
             }
         }
 
-        
+        // GET A LIST OF ROWS TO "COLLAPSE"
         private List<int> ListCollapseHeights()
         {
             List<int> fullRows = new List<int>();
@@ -362,7 +399,7 @@ namespace Tetris
             
         }
   
-
+        // UPDATE SCORE
         private void UpdateScore()
         {
             score += 100;
@@ -370,7 +407,7 @@ namespace Tetris
         }
         
         
-        //KEYS START
+        //KEYS -- START
         
         private void KeyDownLeft(object sender , KeyEventArgs e)
         {
@@ -402,7 +439,7 @@ namespace Tetris
             if (e.KeyCode == Keys.Down)
             {
                 isDownKeyPressed = true;
-                gameTimer.Interval = 100;
+                gameTimer.Interval -= 50;
 
             }
         }
@@ -411,19 +448,18 @@ namespace Tetris
             if (e.KeyCode == Keys.Down)
             {
                 isDownKeyPressed = false;
-                gameTimer.Interval = 150;
+                gameTimer.Interval += 50;
             }
         }
 
         private void RotateLeft2(TetrominoBuilder shape)
         {
-            if(SafeRotation(shape))
-            {
-                shape.RotateLeft(activeTetromino);
+            if (shape.IsLocked)
+                return;
 
-            }
-            
-            
+            TryWallKick(shape);
+
+
         }
         private void KeyUpRight(object sender, KeyEventArgs e)
         {
@@ -467,23 +503,137 @@ namespace Tetris
             }
 
         }
-        
-        // KEYS END
 
-
-        // Populate zeroes
-        
-        private void PopulateZeroes(List<int> list )
+        private void KeyDownC(object sender, KeyEventArgs e)
         {
-            int listCount = list.Count;
-            for( int i = 0; i < gridWidth; i++)
+            if (e.KeyCode == Keys.C)
             {
-                for(int j = 0; j < listCount; j++)
-                {
-                    grid[i, list[j] ] = 0;
-                }
+                HoldTetromino();
+                isCKeyPressed = true;
             }
         }
+
+        private void KeyUpC(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.C)
+            {
+                isCKeyPressed = false;
+            }
+
+        }
+
+
+
+        // KEYS -- END
+
+        // HOLD TETROMINO
+
+        private void HoldTetromino()
+        {
+            if (hasHeldThisTurn) return;
+
+            if (heldTetromino == null)
+            {
+                heldTetromino = activeTetromino;
+                activeTetromino = SpawnTetromino();
+            }
+            else
+            {
+                TetrominoBuilder temp = heldTetromino;
+                heldTetromino = activeTetromino;
+                activeTetromino = temp;
+                ResetTetrominoPosition(activeTetromino);
+            }
+
+            hasHeldThisTurn = true;
+        }
+
+        // INCREASE SPEED 
+
+        private void IncreaseSpeed()
+        {
+            int newLevel = score switch
+            {
+                >= 9500 => 10,
+                >= 8500 => 9,
+                >= 7500 => 8,
+                >= 6500 => 7,
+                >= 5500 => 6,
+                >= 4500 => 5,
+                >= 3500 => 4,
+                >= 2500 => 3,
+                >= 1500 => 2,
+                _ => 1
+            };
+
+            if (newLevel > currentLevel)
+            {
+                currentLevel = newLevel;
+
+                // Adjust the interval based on level
+                gameTimer.Interval = Math.Max(50, 150 - (currentLevel - 1) * 10);
+                level = currentLevel;
+            }
+        }
+
+        // WALL KICK
+
+        public bool TryWallKick(TetrominoBuilder shape)
+        {
+            List<Point> rotated = shape.RotationCheck(shape);
+
+            // Try normal rotation
+            if (IsValidPosition(rotated))
+            {
+                shape.RotateLeft(shape);
+                return true;
+            }
+
+            // Try multiple horizontal shifts (left and right)
+            int[] shifts = { -1, 1, -2, 2, -3, 3 }; // More aggressive kicks
+
+            foreach (int dx in shifts)
+            {
+                var shifted = Shift(rotated, dx);
+                if (IsValidPosition(shifted))
+                {
+                    // Apply the shift
+                    for (int i = 0; i < Math.Abs(dx); i++)
+                    {
+                        if (dx < 0) shape.MoveLeft(shape);
+                        else shape.MoveRight(shape);
+                    }
+
+                    // Apply the rotation
+                    shape.RotateLeft(shape);
+                    return true;
+                }
+            }
+
+            // All wall kicks failed
+            return false;
+        }
+
+
+
+        private List<Point> Shift(List<Point> blocks, int dx)
+        {
+            return blocks.Select(p => new Point(p.X + dx, p.Y)).ToList();
+        }
+
+        private bool IsValidPosition(List<Point> blocks)
+        {
+            foreach (var block in blocks)
+            {
+                if (block.X < 0 || block.X >= gridWidth || block.Y < 0 || block.Y >= gridHeight)
+                    return false;
+
+                if (grid[block.X, block.Y] != 0)
+                    return false;
+            }
+            return true;
+        }
+
 
         // APPLY GRAVITY 
 
@@ -602,6 +752,7 @@ namespace Tetris
           
 
                 ApplyGravity();
+                IncreaseSpeed();
 
             
 
@@ -672,6 +823,25 @@ namespace Tetris
 
             // Restart the game loop
             gameTimer.Start();
+        }
+        private void ResetTetrominoPosition(TetrominoBuilder tetromino)
+        {
+            if (tetromino == null) return;
+
+            int minX = tetromino.Blocks.Min(b => b.X);
+            int minY = tetromino.Blocks.Min(b => b.Y);
+
+            // Offset to position near top center
+            int xOffset = (gridWidth / 2) - minX;
+            int yOffset = 0 - minY;  // Bring it to top
+
+            for (int i = 0; i < tetromino.Blocks.Length; i++)
+            {
+                tetromino.Blocks[i] = new Point(
+                    tetromino.Blocks[i].X + xOffset,
+                    tetromino.Blocks[i].Y + yOffset
+                );
+            }
         }
 
 
