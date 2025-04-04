@@ -31,42 +31,42 @@ namespace Tetris
         private bool isZKeyPressed = false;
         private bool isXKeyPressed = false;
         private int score = 0;
+        private TetrominoBuilder nextTetromino;
 
 
+        // Set timer 
         private System.Windows.Forms.Timer gameTimer;
 
 
         // Define GameLoop
         private void GameLoop(object sender , EventArgs e)
         {
-   
                 UpdateGame();
                 Invalidate();
-            
-
         }
+
         // Define Form1 
         public Form1()
         {
 
             // Set up the Client
             InitializeComponent();
-            this.BackColor = Color.Black;
+            this.BackColor = Color.FromArgb(30, 30, 30);
             this.DoubleBuffered = true;
-            this.ClientSize = new Size(gridWidth * cellSize + 100, gridHeight * cellSize);
+            this.ClientSize = new Size(gridWidth * cellSize + 130, gridHeight * cellSize);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             
             // Set up a timer
             gameTimer = new System.Windows.Forms.Timer();
-            gameTimer.Interval = 100;
+            gameTimer.Interval = 150;
             gameTimer.Tick += new EventHandler(GameLoop);
             gameTimer.Start();
             
             //Spawn Tetromino
             activeTetromino = SpawnTetromino();
-            
+           
             // Initialize grid
             grid= new int[gridWidth, gridHeight];
             
@@ -125,21 +125,40 @@ namespace Tetris
                 DrawTetromino(e.Graphics, activeTetromino);
             }
             using (Font font = new Font("Arial", 8))
-            using (SolidBrush brush = new SolidBrush(Color.White))
+            using (SolidBrush brush = new SolidBrush(Color.FloralWhite))
             {
                 e.Graphics.DrawString($"Score: {score}", font, brush, new PointF(320, 20));
+                e.Graphics.DrawString("Next tetromino", font, brush, new PointF(310, 70));
+
             }
+            DrawNextTetromino(e.Graphics, nextTetromino);
+
         }
+
 
 
         //Spawn Tetromino 
         public TetrominoBuilder SpawnTetromino()
         {
-
-            activeTetromino = PickTetromino();
+            activeTetromino = nextTetromino ?? PickTetromino();
+            nextTetromino = PickTetromino(); 
             return activeTetromino;
-
         }
+
+        private void DrawNextTetromino(Graphics g, TetrominoBuilder next)
+        {
+            using (SolidBrush brush = new SolidBrush(next.Color))
+            {
+                foreach (Point block in next.Blocks)
+                {
+                    int x = 290 + block.X * cellSize / 2; 
+                    int y = 120 + block.Y * cellSize / 2;
+                    g.FillRectangle(brush, x, y, cellSize / 2, cellSize / 2);
+                    g.DrawRectangle(Pens.White, x, y, cellSize / 2, cellSize / 2);
+                }
+            }
+        }
+
 
         // Draw Grid Method
         private void DrawGrid(Graphics g)
@@ -347,7 +366,10 @@ namespace Tetris
             score += 100;
             Invalidate();
         }
-        //KEYS
+        
+        
+        //KEYS START
+        
         private void KeyDownLeft(object sender , KeyEventArgs e)
         {
             if(e.KeyCode == Keys.Left)
@@ -378,7 +400,7 @@ namespace Tetris
             if (e.KeyCode == Keys.Down)
             {
                 isDownKeyPressed = true;
-                gameTimer.Interval = 50;
+                gameTimer.Interval = 100;
 
             }
         }
@@ -387,7 +409,7 @@ namespace Tetris
             if (e.KeyCode == Keys.Down)
             {
                 isDownKeyPressed = false;
-                gameTimer.Interval = 100;
+                gameTimer.Interval = 150;
             }
         }
 
@@ -425,7 +447,12 @@ namespace Tetris
                 isLeftKeyPressed = false;
             }
         }
+        
+        // KEYS END
 
+
+        // Populate zeroes
+        
         private void PopulateZeroes(List<int> list )
         {
             int listCount = list.Count;
@@ -437,6 +464,9 @@ namespace Tetris
                 }
             }
         }
+        
+        // APPLY GRAVITY 
+        
         private void ApplyGravity()
         {
             List<int> fullRows = ListCollapseHeights(); // Get rows that need to be cleared
@@ -445,12 +475,17 @@ namespace Tetris
             if (fullRows.Count > 0)
             {
                 PopulateZeroes(fullRows);
-                // Clear the full rows
+                foreach( int row in fullRows)
+                {
+                    UpdateScore();
+                }
+
+            
 
                 // Shift only rows ABOVE cleared rows downward
                 foreach (int clearedRow in fullRows)
                 {
-                    for (int row = clearedRow; row > 0; row--)
+                    for (int row = clearedRow; row >0; row--)
                     {
                         for (int col = 0; col < gridWidth; col++)
                         {
@@ -467,7 +502,7 @@ namespace Tetris
 
 
 
-
+        // CHECK GAME OVER
 
         private bool CheckGameOver()
         {
@@ -482,6 +517,9 @@ namespace Tetris
             return false;
         }
 
+
+        // GAME OVER
+
         private void GameOver()
         {
             if (CheckGameOver())
@@ -491,6 +529,9 @@ namespace Tetris
                 RestartGame(); // Optionally restart the game
             }
         }
+
+
+        // UPDATE GAME
 
         private void UpdateGame()
         {
@@ -513,6 +554,9 @@ namespace Tetris
 
 
         }
+
+        // SET NEW ACTIVE TETROMINO
+
         private TetrominoBuilder SetNewActive(bool locked)
         {
             if (locked)
@@ -523,6 +567,8 @@ namespace Tetris
             }
             else return activeTetromino;
         }
+
+        // CHECK FOR COLLISION
 
         private bool CheckCollision(TetrominoBuilder shape, int[,] grid)
         {
@@ -542,6 +588,9 @@ namespace Tetris
             }
             return false;
         }
+
+        // RESTART GAME
+
         private void RestartGame()
         {
             // Clear the grid
@@ -550,7 +599,7 @@ namespace Tetris
                 for (int col = 0; col < gridWidth; col++)
                 {
                     grid[col, row] = 0;
-                    gridColors[col, row] = Color.Black;
+                    gridColors[col, row] = Color.FromArgb(30, 30, 30);
                 }
             }
 
