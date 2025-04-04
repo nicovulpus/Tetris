@@ -13,7 +13,7 @@ namespace Tetris
                 new Point(5, 2),
                 new Point(6, 1)
             },
-            Color.Green) // Specify the color for LShape
+            Color.FromArgb(215, 189, 226)) 
             {
             }
         

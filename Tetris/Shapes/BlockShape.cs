@@ -13,8 +13,9 @@ namespace Tetris
             new Point(6, 0),
             new Point(6, 1)
         },
-            Color.Orange)
-            {
+            Color.FromArgb(255, 249, 176)
+                                )
+        {
             }
         
 
