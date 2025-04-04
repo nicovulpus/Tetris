@@ -9,6 +9,7 @@ using System.Diagnostics;
 using Accessibility;
 using System.Net.NetworkInformation;
 using System.Diagnostics.Eventing.Reader;
+using System.Drawing.Drawing2D;
 
 namespace Tetris
 {
@@ -108,11 +109,8 @@ namespace Tetris
             this.KeyUp += new KeyEventHandler(KeyUpX);
             this.KeyDown += new KeyEventHandler(KeyDownC);
             this.KeyUp += new KeyEventHandler(KeyUpC);
-
-
-
-
         }
+
 
         // ONPAINT
         protected override void OnPaint(PaintEventArgs e)
@@ -128,13 +126,23 @@ namespace Tetris
                 for (int col = 0; col < gridWidth; col++)
                 {
                     if (grid[col, row] != 0)
+                    {
                         using (SolidBrush brush = new SolidBrush(gridColors[col, row]))
                         {
-                            e.Graphics.FillRectangle(brush, col * cellSize, row * cellSize, cellSize, cellSize);
-                            e.Graphics.DrawRectangle(Pens.White, col * cellSize, row * cellSize, cellSize, cellSize);
+                            int x = col * cellSize;
+                            int y = row * cellSize;
+                            Rectangle rect = new Rectangle(x, y, cellSize, cellSize);
+
+                            using (GraphicsPath path = CreateRoundedRectangle(rect, 6)) // 6 = corner radius
+                            {
+                                e.Graphics.FillPath(brush, path);
+                                e.Graphics.DrawPath(Pens.FloralWhite, path);
+                            }
                         }
+                    }
                 }
             }
+
 
             // DRAW THE ACTIVE TETROMINO
             if (activeTetromino != null)
@@ -143,7 +151,7 @@ namespace Tetris
             }
 
             // DRAW THE STRINGS ON THE SIDE OF THE GRID
-            using (Font font = new Font("Arial", 8))
+            using (Font font = new Font("Consolas", 8))
             using (SolidBrush brush = new SolidBrush(Color.FloralWhite))
             {
                 e.Graphics.DrawString($"Score: {score}", font, brush, new PointF(320, 20));
@@ -181,13 +189,19 @@ namespace Tetris
             {
                 foreach (Point block in next.Blocks)
                 {
-                    int x = 290 + block.X * cellSize / 2; 
+                    int x = 290 + block.X * cellSize / 2;
                     int y = 120 + block.Y * cellSize / 2;
-                    g.FillRectangle(brush, x, y, cellSize / 2, cellSize / 2);
-                    g.DrawRectangle(Pens.White, x, y, cellSize / 2, cellSize / 2);
+                    Rectangle rect = new Rectangle(x, y, cellSize / 2, cellSize / 2);
+
+                    using (GraphicsPath path = CreateRoundedRectangle(rect, 4)) // smaller radius for smaller size
+                    {
+                        g.FillPath(brush, path);
+                        g.DrawPath(Pens.White, path);
+                    }
                 }
             }
         }
+
 
         // METHOD TO DRAW THE HELD TETROMINO ON THE SIDE OF THE GRID
         private void DrawHeldTetromino(Graphics g, TetrominoBuilder next)
@@ -200,8 +214,13 @@ namespace Tetris
                 {
                     int x = 290 + block.X * cellSize / 2;
                     int y = 180 + block.Y * cellSize / 2;
-                    g.FillRectangle(brush, x, y, cellSize / 2, cellSize / 2);
-                    g.DrawRectangle(Pens.White, x, y, cellSize / 2, cellSize / 2);
+                    Rectangle rect = new Rectangle(x, y, cellSize / 2, cellSize / 2);
+
+                    using (GraphicsPath path = CreateRoundedRectangle(rect, 4)) // 4 for smaller pieces
+                    {
+                        g.FillPath(brush, path);
+                        g.DrawPath(Pens.White, path);
+                    }
                 }
             }
         }
@@ -229,20 +248,26 @@ namespace Tetris
         // METHOD TO DRAW THE ACTIVE TETROMINO
         public void DrawTetromino(Graphics g, TetrominoBuilder shape)
         {
-            //  Here I want to draw the selected shape on top of the grid
             using (SolidBrush brush = new SolidBrush(shape.Color))
             {
                 if (!shape.IsLocked)
+                {
                     foreach (Point block in shape.Blocks)
                     {
                         int x = block.X * cellSize;
                         int y = block.Y * cellSize;
-                        g.FillRectangle(brush, x, y, cellSize, cellSize);
-                        g.DrawRectangle(Pens.White, x, y, cellSize, cellSize);
+                        Rectangle rect = new Rectangle(x, y, cellSize, cellSize);
 
+                        using (GraphicsPath path = CreateRoundedRectangle(rect, 6)) 
+                        {
+                            g.FillPath(brush, path);
+                            g.DrawPath(Pens.White, path);
+                        }
                     }
+                }
             }
         }
+
 
         // RANDOMLY PICK THE NEXT TETROMINO
         public TetrominoBuilder PickTetromino()
@@ -815,6 +840,33 @@ namespace Tetris
 
             // RESTART GAME LOOP
             gameTimer.Start();
+        }
+
+        // CREATE ROUNDED RECTANGLES 
+
+        public GraphicsPath CreateRoundedRectangle(Rectangle rect, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+
+            int diameter = radius * 2;
+            Rectangle arc = new Rectangle(rect.Location, new Size(diameter, diameter));
+
+           
+            path.AddArc(arc, 180, 90);
+
+            
+            arc.X = rect.Right - diameter;
+            path.AddArc(arc, 270, 90);
+
+            arc.Y = rect.Bottom - diameter;
+            path.AddArc(arc, 0, 90);
+
+            
+            arc.X = rect.Left;
+            path.AddArc(arc, 90, 90);
+
+            path.CloseFigure();
+            return path;
         }
 
 
