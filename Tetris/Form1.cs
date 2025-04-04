@@ -93,6 +93,8 @@ namespace Tetris
             this.KeyUp += new KeyEventHandler(KeyUpZ);
             this.KeyDown += new KeyEventHandler(KeyDownDown);
             this.KeyUp += new KeyEventHandler(KeyUpDown);
+            this.KeyDown += new KeyEventHandler(KeyDownX);
+            this.KeyUp += new KeyEventHandler(KeyUpX);
 
 
 
@@ -447,6 +449,24 @@ namespace Tetris
                 isLeftKeyPressed = false;
             }
         }
+
+        private void KeyDownX(object sender, KeyEventArgs e)
+        {
+            if ( e.KeyCode == Keys.X)
+            {
+                HardDrop();
+                isXKeyPressed = true;
+            }
+        }
+        
+        private void KeyUpX(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.X)
+            { 
+                isXKeyPressed = false; 
+            }
+
+        }
         
         // KEYS END
 
@@ -464,41 +484,84 @@ namespace Tetris
                 }
             }
         }
-        
+
         // APPLY GRAVITY 
-        
+
         private void ApplyGravity()
         {
-            List<int> fullRows = ListCollapseHeights(); // Get rows that need to be cleared
-            fullRows = fullRows.OrderByDescending(x => x).ToList(); // Sort in descending order
+            List<int> fullRows = ListCollapseHeights();
 
-            if (fullRows.Count > 0)
+            if (fullRows.Count == 0)
+                return;
+
+            // Create a new temp grid
+            int[,] newGrid = new int[gridWidth, gridHeight];
+            Color[,] newGridColors = new Color[gridWidth, gridHeight];
+
+            int targetRow = gridHeight - 1;
+
+            // Go from bottom up, copying only non-full rows
+            for (int row = gridHeight - 1; row >= 0; row--)
             {
-                PopulateZeroes(fullRows);
-                foreach( int row in fullRows)
+                if (!fullRows.Contains(row))
                 {
-                    UpdateScore();
-                }
-
-            
-
-                // Shift only rows ABOVE cleared rows downward
-                foreach (int clearedRow in fullRows)
-                {
-                    for (int row = clearedRow; row >0; row--)
+                    for (int col = 0; col < gridWidth; col++)
                     {
-                        for (int col = 0; col < gridWidth; col++)
-                        {
-                            grid[col, row] = grid[col, row - 1];   // Move row above down
-                            gridColors[col, row] = gridColors[col, row - 1];
-                        }
+                        newGrid[col, targetRow] = grid[col, row];
+                        newGridColors[col, targetRow] = gridColors[col, row];
                     }
+                    targetRow--;
                 }
             }
-           
-            Invalidate(); // Refresh the UI
+
+            // Replace original grid
+            grid = newGrid;
+            gridColors = newGridColors;
+
+            // Score once per row cleared
+            foreach (int _ in fullRows)
+                UpdateScore();
+
+            Invalidate(); // Redraw
+        }
+
+        // HARD DROP
+
+        public void HardDrop()
+        {
+            if (activeTetromino == null || activeTetromino.IsLocked)
+                return;
+
+            while (true)
+            {
+                // Try to move the tetromino down
+                foreach (Point block in activeTetromino.Blocks)
+                {
+                    int newY = block.Y + 1;
+                    // If the block would go out of bounds or land on another block
+                    if (newY >= gridHeight || grid[block.X, newY] != 0)
+                    {
+                        LockTetromino(activeTetromino);
+                        activeTetromino = SpawnTetromino();
+                        ApplyGravity();
+                        Invalidate();
+                        return;
+                    }
+                }
+
+                // If it's safe, move the tetromino down
+                activeTetromino.MoveDown(activeTetromino);
+            }
         }
         
+
+
+
+        // HOLD TETROMINO
+
+
+
+        // PAUSE GAME 
 
 
 
