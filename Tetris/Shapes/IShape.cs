@@ -16,7 +16,14 @@ namespace Tetris
             Color.FromArgb(168, 230, 207)) 
             {
             }
-        
+
+        public override TetrominoBuilder Clone()
+        {
+            var clone = new IShapes();
+            clone.Blocks = (Point[])this.Blocks.Clone();
+            clone.Color = Color.FromArgb(80, this.Color); // Transparent ghost version
+            return clone;
+        }
 
     }
 }

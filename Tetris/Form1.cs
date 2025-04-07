@@ -10,6 +10,9 @@ using Accessibility;
 using System.Net.NetworkInformation;
 using System.Diagnostics.Eventing.Reader;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.Media;
+
 
 namespace Tetris
 {
@@ -36,6 +39,11 @@ namespace Tetris
         private bool isCKeyPressed = false;
         // CREATE HELD-BOOL
         private bool hasHeldThisTurn = false;
+        // DEFINE GHOSTTETROMINO 
+        private TetrominoBuilder ghostTetromino;
+        // SET UP MUSIC
+        private SoundPlayer backgroundMusic;
+
 
         // CREATE SCORE AND LEVEL
         private int score = 0;
@@ -75,9 +83,12 @@ namespace Tetris
             gameTimer.Interval = 150;
             gameTimer.Tick += new EventHandler(GameLoop);
             gameTimer.Start();
+
             
-            // SPAWN TETROMINO
-            activeTetromino = SpawnTetromino();
+
+
+        // SPAWN TETROMINO
+        activeTetromino = SpawnTetromino();
            
             // INITIALIZE GRID
             grid= new int[gridWidth, gridHeight];
@@ -109,7 +120,52 @@ namespace Tetris
             this.KeyUp += new KeyEventHandler(KeyUpX);
             this.KeyDown += new KeyEventHandler(KeyDownC);
             this.KeyUp += new KeyEventHandler(KeyUpC);
+
+
+            backgroundMusic = new SoundPlayer("tetris.wav");
+            backgroundMusic.PlayLooping();
+
+
         }
+
+        // HELPER METHOD TO DRAW STYLED BLOCKS
+
+        private void DrawStyledBlock(Graphics g, int x, int y, int size, Color baseColor)
+        {
+            Rectangle rect = new Rectangle(x, y, size, size);
+
+            using (GraphicsPath path = CreateRoundedRectangle(rect, 6))
+            {
+                // BASE COLOR
+                using (SolidBrush baseBrush = new SolidBrush(baseColor))
+                    g.FillPath(baseBrush, path);
+
+                // HIGHLIGHT TOP LEFT
+                using (LinearGradientBrush highlight = new LinearGradientBrush(
+                    rect,
+                    Color.FromArgb(100, Color.White),
+                    Color.FromArgb(0, Color.White),
+                    LinearGradientMode.ForwardDiagonal))
+                {
+                    g.FillPath(highlight, path);
+                }
+
+                // SHADOW BOTTOM RIGHT
+                using (LinearGradientBrush shadow = new LinearGradientBrush(
+                    rect,
+                    Color.FromArgb(0, Color.Black),
+                    Color.FromArgb(100, Color.Black),
+                    LinearGradientMode.BackwardDiagonal))
+                {
+                    g.FillPath(shadow, path);
+                }
+
+                // OUTLINE
+                g.DrawPath(Pens.FloralWhite, path);
+            }
+        }
+
+
 
 
         // ONPAINT
@@ -127,21 +183,17 @@ namespace Tetris
                 {
                     if (grid[col, row] != 0)
                     {
-                        using (SolidBrush brush = new SolidBrush(gridColors[col, row]))
-                        {
-                            int x = col * cellSize;
-                            int y = row * cellSize;
-                            Rectangle rect = new Rectangle(x, y, cellSize, cellSize);
-
-                            using (GraphicsPath path = CreateRoundedRectangle(rect, 6)) // 6 = corner radius
-                            {
-                                e.Graphics.FillPath(brush, path);
-                                e.Graphics.DrawPath(Pens.FloralWhite, path);
-                            }
-                        }
+                        int x = col * cellSize;
+                        int y = row * cellSize;
+                        DrawStyledBlock(e.Graphics, x, y, cellSize, gridColors[col, row]);
                     }
                 }
             }
+
+
+            // DRAW THE GHOST TETROMINO
+            DrawGhostPiece(e.Graphics, ghostTetromino);
+
 
 
             // DRAW THE ACTIVE TETROMINO
@@ -185,22 +237,50 @@ namespace Tetris
         // METHOD TO DRAW THE NEXT TETROMINO ON THE SIDE OF THE GRID
         private void DrawNextTetromino(Graphics g, TetrominoBuilder next)
         {
-            using (SolidBrush brush = new SolidBrush(next.Color))
-            {
-                foreach (Point block in next.Blocks)
-                {
-                    int x = 290 + block.X * cellSize / 2;
-                    int y = 120 + block.Y * cellSize / 2;
-                    Rectangle rect = new Rectangle(x, y, cellSize / 2, cellSize / 2);
+            if (next == null) return;
 
-                    using (GraphicsPath path = CreateRoundedRectangle(rect, 4)) // smaller radius for smaller size
+            foreach (Point block in next.Blocks)
+            {
+                int x = 290 + block.X * cellSize / 2;
+                int y = 120 + block.Y * cellSize / 2;
+                int size = cellSize / 2;
+                Rectangle rect = new Rectangle(x, y, size, size);
+                Color baseColor = next.Color;
+
+                using (GraphicsPath path = CreateRoundedRectangle(rect, 4))
+                {
+                    // BASE COLOR
+                    using (SolidBrush baseBrush = new SolidBrush(baseColor))
+                        g.FillPath(baseBrush, path);
+
+                    // HIGHLIGHT TOP LEFT
+                    using (GraphicsPath highlightPath = CreateRoundedRectangle(rect, 4))
+                    using (LinearGradientBrush highlight = new LinearGradientBrush(
+                        rect,
+                        Color.FromArgb(80, Color.White),
+                        Color.FromArgb(0, Color.White),
+                        LinearGradientMode.ForwardDiagonal))
                     {
-                        g.FillPath(brush, path);
-                        g.DrawPath(Pens.White, path);
+                        g.FillPath(highlight, highlightPath);
                     }
+
+                    // SHADOW BOTTOM RIGHT
+                    using (GraphicsPath shadowPath = CreateRoundedRectangle(rect, 4))
+                    using (LinearGradientBrush shadow = new LinearGradientBrush(
+                        rect,
+                        Color.FromArgb(0, Color.Black),
+                        Color.FromArgb(60, Color.Black),
+                        LinearGradientMode.BackwardDiagonal))
+                    {
+                        g.FillPath(shadow, shadowPath);
+                    }
+
+                    // OUTLINE
+                    g.DrawPath(Pens.FloralWhite, path);
                 }
             }
         }
+
 
 
         // METHOD TO DRAW THE HELD TETROMINO ON THE SIDE OF THE GRID
@@ -208,19 +288,42 @@ namespace Tetris
         {
             if (next == null) return;
 
-            using (SolidBrush brush = new SolidBrush(next.Color))
+            foreach (Point block in next.Blocks)
             {
-                foreach (Point block in next.Blocks)
-                {
-                    int x = 290 + block.X * cellSize / 2;
-                    int y = 180 + block.Y * cellSize / 2;
-                    Rectangle rect = new Rectangle(x, y, cellSize / 2, cellSize / 2);
+                int x = 290 + block.X * cellSize / 2;
+                int y = 180 + block.Y * cellSize / 2;
+                int size = cellSize / 2;
+                Rectangle rect = new Rectangle(x, y, size, size);
+                Color baseColor = next.Color;
 
-                    using (GraphicsPath path = CreateRoundedRectangle(rect, 4)) // 4 for smaller pieces
+                using (GraphicsPath path = CreateRoundedRectangle(rect, 4))
+                {
+                    // BASE COLOR
+                    using (SolidBrush baseBrush = new SolidBrush(baseColor))
+                        g.FillPath(baseBrush, path);
+
+                    // HIGHLIGHT TOP LEFT
+                    using (LinearGradientBrush highlight = new LinearGradientBrush(
+                        rect,
+                        Color.FromArgb(80, Color.White),
+                        Color.FromArgb(0, Color.White),
+                        LinearGradientMode.ForwardDiagonal))
                     {
-                        g.FillPath(brush, path);
-                        g.DrawPath(Pens.White, path);
+                        g.FillPath(highlight, path);
                     }
+
+                    // SHADOW BOTTOM RIGHT
+                    using (LinearGradientBrush shadow = new LinearGradientBrush(
+                        rect,
+                        Color.FromArgb(0, Color.Black),
+                        Color.FromArgb(60, Color.Black),
+                        LinearGradientMode.BackwardDiagonal))
+                    {
+                        g.FillPath(shadow, path);
+                    }
+
+                    // BORDER
+                    g.DrawPath(Pens.FloralWhite, path);
                 }
             }
         }
@@ -245,28 +348,22 @@ namespace Tetris
             }
         }
 
+
         // METHOD TO DRAW THE ACTIVE TETROMINO
         public void DrawTetromino(Graphics g, TetrominoBuilder shape)
         {
-            using (SolidBrush brush = new SolidBrush(shape.Color))
-            {
-                if (!shape.IsLocked)
-                {
-                    foreach (Point block in shape.Blocks)
-                    {
-                        int x = block.X * cellSize;
-                        int y = block.Y * cellSize;
-                        Rectangle rect = new Rectangle(x, y, cellSize, cellSize);
+            if (shape == null) return;
 
-                        using (GraphicsPath path = CreateRoundedRectangle(rect, 6)) 
-                        {
-                            g.FillPath(brush, path);
-                            g.DrawPath(Pens.White, path);
-                        }
-                    }
-                }
+            foreach (Point block in shape.Blocks)
+            {
+                int x = block.X * cellSize;
+                int y = block.Y * cellSize;
+                DrawStyledBlock(g, x, y, cellSize, shape.Color);
             }
         }
+
+
+
 
 
         // RANDOMLY PICK THE NEXT TETROMINO
@@ -631,7 +728,7 @@ namespace Tetris
         // HELPER FUNCTION FOR WALL KICK
         private List<Point> Shift(List<Point> blocks, int dx)
         {
-            // LOOP THROUGH EACH POINT IN BLOCKS , USES LINQ TO "SHIFT" EACH BLOCK HORIZONTALLY TO CHECK IF IT COLLIDES 
+            // LOOP THROUGH EACH POINT IN BLOCKS , USE LINQ TO "SHIFT" EACH BLOCK HORIZONTALLY TO CHECK IF IT COLLIDES 
             // OR GOES OUT OF BOUNDS
             return blocks.Select(p => new Point(p.X + dx, p.Y)).ToList();
         }
@@ -803,8 +900,12 @@ namespace Tetris
                 
                 ApplyGravity();
                 IncreaseSpeed();
+                ghostTetromino = CheckWhereGhostPieceWouldDrop(activeTetromino);
 
-            
+
+
+
+
 
             if (activeTetromino.IsLocked)
             {
@@ -867,6 +968,50 @@ namespace Tetris
 
             path.CloseFigure();
             return path;
+        }
+
+        private void DrawGhostPiece(Graphics g, TetrominoBuilder shape)
+        {
+            if (shape == null) return;
+
+            Color ghostColor = Color.FromArgb(80, shape.Color); // semi-transparent
+
+            foreach (Point block in shape.Blocks)
+            {
+                int x = block.X * cellSize;
+                int y = block.Y * cellSize;
+                DrawStyledBlock(g, x, y, cellSize, ghostColor);
+            }
+        }
+
+
+
+
+        private TetrominoBuilder CheckWhereGhostPieceWouldDrop(TetrominoBuilder activeTetromino)
+        {
+            TetrominoBuilder ghost = activeTetromino.Clone();
+
+            // Keep moving down until it hits something
+            bool canMove = true;
+            while (canMove)
+            {
+                foreach (Point block in ghost.Blocks)
+                {
+                    int newY = block.Y + 1;
+                    if (newY >= gridHeight || grid[block.X, newY] != 0)
+                    {
+                        canMove = false;
+                        break;
+                    }
+                }
+
+                if (canMove)
+                {
+                    ghost.MoveDown(ghost);
+                }
+            }
+
+            return ghost;
         }
 
 

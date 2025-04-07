@@ -17,7 +17,13 @@ namespace Tetris
                                 )
         {
             }
-        
+        public override TetrominoBuilder Clone()
+        {
+            var clone = new BShapes();
+            clone.Blocks = (Point[])this.Blocks.Clone();
+            clone.Color = Color.FromArgb(80, this.Color); // Transparent ghost version
+            return clone;
+        }
 
     }
 }

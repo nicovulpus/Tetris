@@ -4,7 +4,7 @@ using System.Drawing;
 
 namespace Tetris
 {
-    public class TetrominoBuilder
+    public abstract class TetrominoBuilder
     {
         public Point[] Blocks { get; protected set; }
         public Color Color { get; protected set; }
@@ -21,9 +21,14 @@ namespace Tetris
             this.X = 0;
             this.Y = 0;
             IsLocked = false;
+
         }
 
-        
+        // CLASS FOR CLONING THE TETROMINO FOR GHOST PIECE
+
+        public abstract TetrominoBuilder Clone();
+
+
         public void MoveLeft(TetrominoBuilder activeTetromino)
         {
             for (int i = 0; i < activeTetromino.Blocks.Length; i++)
@@ -100,6 +105,10 @@ namespace Tetris
         {
             IsLocked = false;
         }
+
         
+
+       
+
     }
 }
