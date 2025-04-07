@@ -37,13 +37,15 @@ namespace Tetris
         private bool isZKeyPressed = false;
         private bool isXKeyPressed = false;
         private bool isCKeyPressed = false;
+        private bool isEnterKeyPressed = false;
+        
         // CREATE HELD-BOOL
         private bool hasHeldThisTurn = false;
         // DEFINE GHOSTTETROMINO 
         private TetrominoBuilder ghostTetromino;
         // SET UP MUSIC
         private SoundPlayer backgroundMusic;
-
+        private int selectedMenuIndex = 0;
 
         // CREATE SCORE AND LEVEL
         private int score = 0;
@@ -120,6 +122,10 @@ namespace Tetris
             this.KeyUp += new KeyEventHandler(KeyUpX);
             this.KeyDown += new KeyEventHandler(KeyDownC);
             this.KeyUp += new KeyEventHandler(KeyUpC);
+            this.KeyDown += new KeyEventHandler(KeyDownUp);
+            this.KeyUp += new KeyEventHandler(KeyUpUp);
+            this.KeyDown += new KeyEventHandler(KeyDownEnter);
+            this.KeyUp += new KeyEventHandler(KeyUpEnter);
 
 
             backgroundMusic = new SoundPlayer("tetris.wav");
@@ -207,15 +213,40 @@ namespace Tetris
             using (SolidBrush brush = new SolidBrush(Color.FloralWhite))
             {
                 e.Graphics.DrawString($"Score: {score}", font, brush, new PointF(320, 20));
-                e.Graphics.DrawString("Next Tetromino", font, brush, new PointF(310, 70));
-                e.Graphics.DrawString("Held Tetromino", font, brush , new PointF(310, 200));
-                e.Graphics.DrawString($"Level: {currentLevel}", font, brush, new PointF(320, 400));
+                e.Graphics.DrawString("Next Tetromino", font, brush, new PointF(300, 70));
+                e.Graphics.DrawString("Held Tetromino", font, brush , new PointF(300, 200));
+                e.Graphics.DrawString($"Level: {currentLevel}", font, brush, new PointF(320, 350));
+                
 
 
             }
             // DRAW THE NEXT AND HELD TETROMINOS ON THE SIDE
             DrawNextTetromino(e.Graphics, nextTetromino);
             DrawHeldTetromino(e.Graphics, heldTetromino);
+
+            if (CheckGameOver())
+            {       
+                string[] options = { "Restart", "Quit" };
+                using (Font bigFont = new Font("Consolas", 8))
+                using (Font smallFont = new Font("Consolas", 8))
+                using (SolidBrush textBrush = new SolidBrush(Color.FloralWhite))
+                {
+                    e.Graphics.DrawString("GAME OVER!", smallFont, textBrush,  new PointF(310, 420));
+                   
+                    
+
+                    for (int i = 0; i < options.Length; i++)
+                    {
+                        Brush optionBrush = (i == selectedMenuIndex)
+                            ? new SolidBrush(Color.FromArgb(255, 200, 100))
+                            : textBrush;
+
+                        e.Graphics.DrawString(options[i], smallFont, optionBrush, new PointF(310, 480 + i * 30));
+                    }
+
+                }
+            }
+
 
         }
 
@@ -241,7 +272,7 @@ namespace Tetris
 
             foreach (Point block in next.Blocks)
             {
-                int x = 290 + block.X * cellSize / 2;
+                int x = 280 + block.X * cellSize / 2;
                 int y = 120 + block.Y * cellSize / 2;
                 int size = cellSize / 2;
                 Rectangle rect = new Rectangle(x, y, size, size);
@@ -284,25 +315,39 @@ namespace Tetris
 
 
         // METHOD TO DRAW THE HELD TETROMINO ON THE SIDE OF THE GRID
-        private void DrawHeldTetromino(Graphics g, TetrominoBuilder next)
+        private void DrawHeldTetromino(Graphics g, TetrominoBuilder held)
         {
-            if (next == null) return;
+            if (held == null) return;
 
-            foreach (Point block in next.Blocks)
+            // BOUNDING BOX
+            int minX = held.Blocks.Min(b => b.X);
+            int minY = held.Blocks.Min(b => b.Y);
+            int maxX = held.Blocks.Max(b => b.X);
+            int maxY = held.Blocks.Max(b => b.Y);
+
+            int shapeWidth = (maxX - minX + 1) * (cellSize / 2);
+            int shapeHeight = (maxY - minY + 1) * (cellSize / 2);
+
+            // WHERE TO DRAW
+            int offsetX = 323;
+            int offsetY = 235;
+
+            // OFFSET WITH DISPLAY BOX
+            int centerOffsetX = (80 - shapeWidth) / 2;
+            int centerOffsetY = (80 - shapeHeight) / 2;
+
+            foreach (Point block in held.Blocks)
             {
-                int x = 290 + block.X * cellSize / 2;
-                int y = 180 + block.Y * cellSize / 2;
+                int x = offsetX + centerOffsetX + (block.X - minX) * cellSize / 2;
+                int y = offsetY + centerOffsetY + (block.Y - minY) * cellSize / 2;
                 int size = cellSize / 2;
                 Rectangle rect = new Rectangle(x, y, size, size);
-                Color baseColor = next.Color;
 
                 using (GraphicsPath path = CreateRoundedRectangle(rect, 4))
                 {
-                    // BASE COLOR
-                    using (SolidBrush baseBrush = new SolidBrush(baseColor))
+                    using (SolidBrush baseBrush = new SolidBrush(held.Color))
                         g.FillPath(baseBrush, path);
 
-                    // HIGHLIGHT TOP LEFT
                     using (LinearGradientBrush highlight = new LinearGradientBrush(
                         rect,
                         Color.FromArgb(80, Color.White),
@@ -312,7 +357,6 @@ namespace Tetris
                         g.FillPath(highlight, path);
                     }
 
-                    // SHADOW BOTTOM RIGHT
                     using (LinearGradientBrush shadow = new LinearGradientBrush(
                         rect,
                         Color.FromArgb(0, Color.Black),
@@ -322,11 +366,11 @@ namespace Tetris
                         g.FillPath(shadow, path);
                     }
 
-                    // BORDER
                     g.DrawPath(Pens.FloralWhite, path);
                 }
             }
         }
+
 
 
 
@@ -531,6 +575,28 @@ namespace Tetris
         
         //KEYS -- START
         
+        private void KeyDownUp(object sender, KeyEventArgs e)
+        {
+            if ( e.KeyCode == Keys.Up)
+            {
+                isUpKeyPressed = true;
+                if(CheckGameOver())
+                {
+                    if (e.KeyCode == Keys.Up )
+                    {
+                        selectedMenuIndex = (selectedMenuIndex - 1 + 2) % 2;
+                        Invalidate();
+                    }
+                }
+            }
+        }
+        private void KeyUpUp(object sender, KeyEventArgs e)
+        {
+            if( e.KeyCode == Keys.Up)
+            {
+                isUpKeyPressed = false;
+            }
+        }
         private void KeyDownLeft(object sender , KeyEventArgs e)
         {
             if(e.KeyCode == Keys.Left)
@@ -562,6 +628,14 @@ namespace Tetris
             {
                 isDownKeyPressed = true;
                 gameTimer.Interval -= 50;
+                if(CheckGameOver())
+                {
+                    
+                    
+                        selectedMenuIndex = (selectedMenuIndex + 1) % 2;
+                        Invalidate();
+                    
+                }
 
             }
         }
@@ -644,6 +718,29 @@ namespace Tetris
 
         }
 
+        private void KeyDownEnter( object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter && CheckGameOver())
+            {
+                isEnterKeyPressed = true;
+                if (selectedMenuIndex == 0) 
+                {
+                    RestartGame();
+                    
+                }
+                else if (selectedMenuIndex == 1) 
+                {
+                    Application.Exit();
+                }
+            }
+        }
+        private void KeyUpEnter (  object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                isEnterKeyPressed = false;
+            }
+        }
 
 
         // KEYS -- END
@@ -888,8 +985,7 @@ namespace Tetris
             if (CheckGameOver())
             {
                 gameTimer.Stop(); // IF GAME OVER, STOP GAME LOOP
-                MessageBox.Show("Game Over!", "Tetris", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                RestartGame(); // RESTART GAME
+             
             }
         }
 
@@ -938,6 +1034,9 @@ namespace Tetris
             // RESET SCORE AND ACTIVE PIECE
             score = 0;
             activeTetromino = SpawnTetromino();
+
+            heldTetromino = null;
+            hasHeldThisTurn = false;
 
             // RESTART GAME LOOP
             gameTimer.Start();
