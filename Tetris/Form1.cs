@@ -58,6 +58,8 @@ namespace Tetris
 
         // SET TIMER
         private System.Windows.Forms.Timer gameTimer;
+        
+      
 
 
         // DEFINE GAMELOOP
@@ -80,6 +82,7 @@ namespace Tetris
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             
+
             // SET UP A TIMER
             gameTimer = new System.Windows.Forms.Timer();
             gameTimer.Interval = 150;
@@ -177,6 +180,7 @@ namespace Tetris
         // ONPAINT
         protected override void OnPaint(PaintEventArgs e)
         {
+            
             base.OnPaint(e);
 
             // DRAW THE OUTLINE OF THE GRID
@@ -249,6 +253,8 @@ namespace Tetris
 
 
         }
+
+       
 
 
 
